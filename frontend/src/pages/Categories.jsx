@@ -1,12 +1,16 @@
-import { Edit3, Save, Trash2, X } from "lucide-react";
+import { Edit3, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
+import { ConfirmDialog, Dialog } from "../components/Dialog.jsx";
 
 export function Categories() {
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({ name: "", description: "" });
+  const [categoryDialogMode, setCategoryDialogMode] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [error, setError] = useState("");
+  const [dialogError, setDialogError] = useState("");
 
   async function load() {
     try {
@@ -21,9 +25,33 @@ export function Categories() {
     load();
   }, []);
 
+  function openCreateDialog() {
+    setDialogError("");
+    setEditingCategory(null);
+    setForm({ name: "", description: "" });
+    setCategoryDialogMode("create");
+  }
+
+  function openEditDialog(category) {
+    setDialogError("");
+    setEditingCategory(category);
+    setForm({
+      name: category.name,
+      description: category.description || ""
+    });
+    setCategoryDialogMode("edit");
+  }
+
+  function closeCategoryDialog() {
+    setDialogError("");
+    setEditingCategory(null);
+    setForm({ name: "", description: "" });
+    setCategoryDialogMode(null);
+  }
+
   async function submit(event) {
     event.preventDefault();
-    setError("");
+    setDialogError("");
     try {
       if (editingCategory) {
         await api.updateCategory(editingCategory.id, form);
@@ -32,31 +60,25 @@ export function Categories() {
       }
       setForm({ name: "", description: "" });
       setEditingCategory(null);
+      setCategoryDialogMode(null);
       await load();
     } catch (err) {
-      setError(err.message);
+      setDialogError(err.message);
     }
   }
 
-  function startEdit(category) {
-    setEditingCategory(category);
-    setForm({
-      name: category.name,
-      description: category.description || ""
-    });
-  }
+  async function confirmDeleteCategory() {
+    if (!categoryToDelete) {
+      return;
+    }
 
-  function cancelEdit() {
-    setEditingCategory(null);
-    setForm({ name: "", description: "" });
-  }
-
-  async function removeCategory(id) {
+    setDialogError("");
     try {
-      await api.deleteCategory(id);
+      await api.deleteCategory(categoryToDelete.id);
+      setCategoryToDelete(null);
       await load();
     } catch (err) {
-      setError(err.message);
+      setDialogError(err.message);
     }
   }
 
@@ -67,38 +89,14 @@ export function Categories() {
           <span className="eyebrow">Structure</span>
           <h1>Categories</h1>
         </div>
-        <p>Organize the catalog into clean buying paths.</p>
-      </header>
-
-      <form className="form-panel compact" onSubmit={submit}>
-        <label>
-          Name
-          <input
-            required
-            value={form.name}
-            onChange={(event) => setForm({ ...form, name: event.target.value })}
-            placeholder="Apparel"
-          />
-        </label>
-        <label>
-          Description
-          <input
-            value={form.description}
-            onChange={(event) => setForm({ ...form, description: event.target.value })}
-            placeholder="Clothing and accessories"
-          />
-        </label>
-        {editingCategory ? (
-          <button className="ghost-button" type="button" onClick={cancelEdit}>
-            <X size={17} />
-            <span>Cancel</span>
+        <div className="page-header-actions">
+          <p>Organize the catalog into clean buying paths.</p>
+          <button className="primary-button" type="button" onClick={openCreateDialog}>
+            <Plus size={17} />
+            <span>Add category</span>
           </button>
-        ) : null}
-        <button className="primary-button" type="submit">
-          <Save size={17} />
-          <span>{editingCategory ? "Save category" : "Add category"}</span>
-        </button>
-      </form>
+        </div>
+      </header>
 
       {error ? <p className="error-text">{error}</p> : null}
 
@@ -110,16 +108,69 @@ export function Categories() {
               <span>{category.description || "No description"}</span>
             </div>
             <div className="row-actions">
-              <button className="icon-button" onClick={() => startEdit(category)} type="button">
+              <button className="icon-button" onClick={() => openEditDialog(category)} type="button" aria-label={`Edit ${category.name}`}>
                 <Edit3 size={16} />
               </button>
-              <button className="icon-button danger" onClick={() => removeCategory(category.id)} type="button">
+              <button className="icon-button danger" onClick={() => {
+                setDialogError("");
+                setCategoryToDelete(category);
+              }} type="button" aria-label={`Delete ${category.name}`}>
                 <Trash2 size={16} />
               </button>
             </div>
           </article>
         ))}
       </div>
+
+      <Dialog
+        open={Boolean(categoryDialogMode)}
+        title={categoryDialogMode === "edit" ? "Edit category" : "Add category"}
+        description="Keep product groups clear for browsing, filtering, and reporting."
+        onClose={closeCategoryDialog}
+      >
+        <form className="dialog-form" onSubmit={submit}>
+          <label>
+            Name
+            <input
+              required
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              placeholder="Apparel"
+            />
+          </label>
+          <label>
+            Description
+            <input
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              placeholder="Clothing and accessories"
+            />
+          </label>
+          {dialogError ? <p className="error-text dialog-error">{dialogError}</p> : null}
+          <div className="dialog-actions">
+            <button className="ghost-button" type="button" onClick={closeCategoryDialog}>
+              Cancel
+            </button>
+            <button className="primary-button" type="submit">
+              <Save size={17} />
+              <span>{categoryDialogMode === "edit" ? "Save category" : "Add category"}</span>
+            </button>
+          </div>
+        </form>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(categoryToDelete)}
+        title="Delete category?"
+        description={`Delete "${categoryToDelete?.name || "this category"}"? Products assigned to it will become unassigned.`}
+        confirmLabel="Delete category"
+        error={dialogError}
+        onCancel={() => {
+          setDialogError("");
+          setCategoryToDelete(null);
+        }}
+        onConfirm={confirmDeleteCategory}
+      />
     </section>
   );
 }

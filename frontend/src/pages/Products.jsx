@@ -1,14 +1,18 @@
-import { Edit3, Search, Trash2 } from "lucide-react";
+import { Edit3, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
+import { ConfirmDialog, Dialog } from "../components/Dialog.jsx";
 import { ProductForm } from "../components/ProductForm.jsx";
 
 export function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [productDialogMode, setProductDialogMode] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: "", category_id: "", status: "", stock: "" });
   const [error, setError] = useState("");
+  const [dialogError, setDialogError] = useState("");
 
   async function load() {
     setError("");
@@ -28,26 +32,58 @@ export function Products() {
     load();
   }, [filters.search, filters.category_id, filters.status, filters.stock]);
 
+  function openCreateDialog() {
+    setDialogError("");
+    setSelectedProduct(null);
+    setProductDialogMode("create");
+  }
+
+  function openEditDialog(product) {
+    setDialogError("");
+    setSelectedProduct(product);
+    setProductDialogMode("edit");
+  }
+
+  function closeProductDialog() {
+    setDialogError("");
+    setSelectedProduct(null);
+    setProductDialogMode(null);
+  }
+
+  function openDeleteDialog(product) {
+    setDialogError("");
+    setProductToDelete(product);
+  }
+
   async function saveProduct(product) {
+    setDialogError("");
     try {
-      if (editingProduct) {
-        await api.updateProduct(editingProduct.id, product);
+      if (selectedProduct) {
+        await api.updateProduct(selectedProduct.id, product);
       } else {
         await api.createProduct(product);
       }
-      setEditingProduct(null);
+      closeProductDialog();
       await load();
+      return true;
     } catch (err) {
-      setError(err.message);
+      setDialogError(err.message);
+      return false;
     }
   }
 
-  async function removeProduct(id) {
+  async function confirmDeleteProduct() {
+    if (!productToDelete) {
+      return;
+    }
+
+    setDialogError("");
     try {
-      await api.deleteProduct(id);
+      await api.deleteProduct(productToDelete.id);
+      setProductToDelete(null);
       await load();
     } catch (err) {
-      setError(err.message);
+      setDialogError(err.message);
     }
   }
 
@@ -58,15 +94,14 @@ export function Products() {
           <span className="eyebrow">Catalog</span>
           <h1>Products</h1>
         </div>
-        <p>Keep product content, pricing, stock, and publish status in one place.</p>
+        <div className="page-header-actions">
+          <p>Keep product content, pricing, stock, and publish status in one place.</p>
+          <button className="primary-button" type="button" onClick={openCreateDialog}>
+            <Plus size={17} />
+            <span>Add product</span>
+          </button>
+        </div>
       </header>
-
-      <ProductForm
-        categories={categories}
-        editingProduct={editingProduct}
-        onSubmit={saveProduct}
-        onCancel={() => setEditingProduct(null)}
-      />
 
       <div className="toolbar">
         <label className="search-field">
@@ -135,10 +170,10 @@ export function Products() {
                   <span className={`pill ${product.status}`}>{product.status}</span>
                 </td>
                 <td className="row-actions">
-                  <button className="icon-button" onClick={() => setEditingProduct(product)} type="button">
+                  <button className="icon-button" onClick={() => openEditDialog(product)} type="button" aria-label={`Edit ${product.name}`}>
                     <Edit3 size={16} />
                   </button>
-                  <button className="icon-button danger" onClick={() => removeProduct(product.id)} type="button">
+                  <button className="icon-button danger" onClick={() => openDeleteDialog(product)} type="button" aria-label={`Delete ${product.name}`}>
                     <Trash2 size={16} />
                   </button>
                 </td>
@@ -147,7 +182,36 @@ export function Products() {
           </tbody>
         </table>
       </div>
+
+      <Dialog
+        open={Boolean(productDialogMode)}
+        title={productDialogMode === "edit" ? "Edit product" : "Add product"}
+        description="Manage catalog content, pricing, inventory, and publish state."
+        onClose={closeProductDialog}
+        size="lg"
+      >
+        <ProductForm
+          categories={categories}
+          editingProduct={selectedProduct}
+          error={dialogError}
+          submitLabel={productDialogMode === "edit" ? "Save product" : "Add product"}
+          onSubmit={saveProduct}
+          onCancel={closeProductDialog}
+        />
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(productToDelete)}
+        title="Delete product?"
+        description={`Delete "${productToDelete?.name || "this product"}"? This action cannot be undone.`}
+        confirmLabel="Delete product"
+        error={dialogError}
+        onCancel={() => {
+          setDialogError("");
+          setProductToDelete(null);
+        }}
+        onConfirm={confirmDeleteProduct}
+      />
     </section>
   );
 }
-

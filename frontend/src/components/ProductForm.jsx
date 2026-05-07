@@ -11,7 +11,7 @@ const emptyProduct = {
   category_id: ""
 };
 
-export function ProductForm({ categories, editingProduct, onSubmit, onCancel }) {
+export function ProductForm({ categories, editingProduct, error, submitLabel, onSubmit, onCancel }) {
   const [product, setProduct] = useState(emptyProduct);
 
   useEffect(() => {
@@ -22,18 +22,20 @@ export function ProductForm({ categories, editingProduct, onSubmit, onCancel }) 
     setProduct((current) => ({ ...current, [field]: value }));
   }
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
-    onSubmit({
+    const saved = await onSubmit({
       ...product,
       price: Number(product.price),
       stock: Number(product.stock)
     });
-    setProduct(emptyProduct);
+    if (saved !== false) {
+      setProduct(emptyProduct);
+    }
   }
 
   return (
-    <form className="form-panel" onSubmit={submit}>
+    <form className="dialog-form" onSubmit={submit}>
       <div className="form-grid">
         <label>
           Product name
@@ -106,7 +108,9 @@ export function ProductForm({ categories, editingProduct, onSubmit, onCancel }) 
         />
       </label>
 
-      <div className="form-actions">
+      {error ? <p className="error-text dialog-error">{error}</p> : null}
+
+      <div className="dialog-actions">
         {editingProduct ? (
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
@@ -114,10 +118,9 @@ export function ProductForm({ categories, editingProduct, onSubmit, onCancel }) 
         ) : null}
         <button className="primary-button" type="submit">
           <Save size={17} />
-          <span>{editingProduct ? "Save product" : "Add product"}</span>
+          <span>{submitLabel || (editingProduct ? "Save product" : "Add product")}</span>
         </button>
       </div>
     </form>
   );
 }
-
