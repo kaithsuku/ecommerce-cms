@@ -1,5 +1,89 @@
 # Database Schema
 
+The application uses Supabase PostgreSQL for persistent storage. The schema is
+normalized around catalog management and order tracking.
+
+## Entity Relationship Diagram
+
+```mermaid
+erDiagram
+  CATEGORIES ||--o{ PRODUCTS : groups
+  PRODUCTS ||--o{ ORDER_ITEMS : appears_in
+  ORDERS ||--o{ ORDER_ITEMS : contains
+
+  CATEGORIES {
+    uuid id PK
+    text name UK
+    text description
+    timestamptz created_at
+  }
+
+  PRODUCTS {
+    uuid id PK
+    text name
+    text description
+    numeric price
+    integer stock
+    text status
+    text image_url
+    uuid category_id FK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  ORDERS {
+    uuid id PK
+    text customer_name
+    text customer_email
+    text status
+    numeric total_amount
+    timestamptz created_at
+  }
+
+  ORDER_ITEMS {
+    uuid id PK
+    uuid order_id FK
+    uuid product_id FK
+    integer quantity
+    numeric unit_price
+  }
+```
+
+## Table Summary
+
+| Table | Purpose |
+| --- | --- |
+| `categories` | Stores product grouping such as Apparel, Homeware, Electronics |
+| `products` | Stores catalog content, pricing, stock, publish status, and category |
+| `orders` | Stores customer order headers and fulfillment status |
+| `order_items` | Stores products and quantities inside each order |
+
+## Relationship Rules
+
+| Relationship | Rule |
+| --- | --- |
+| `categories` to `products` | A category can have many products |
+| `products.category_id` | Uses `on delete set null`, so deleting a category does not delete products |
+| `orders` to `order_items` | An order can have many order items |
+| `order_items.order_id` | Uses `on delete cascade`, so deleting an order deletes its items |
+| `order_items.product_id` | Uses `on delete set null`, preserving order history if a product is deleted |
+
+## Status Values
+
+Product status:
+
+```text
+active, draft, archived
+```
+
+Order status:
+
+```text
+pending, processing, shipped, delivered, cancelled
+```
+
+## SQL Setup Script
+
 Run this SQL in the Supabase SQL Editor.
 
 ```sql
@@ -108,4 +192,3 @@ select o.id, p.id, 1, p.price
 from orders o, products p
 where o.customer_email = 'dev@example.com' and p.name = 'Wireless Charger';
 ```
-

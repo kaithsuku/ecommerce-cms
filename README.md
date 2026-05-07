@@ -10,6 +10,8 @@ FSAD assignment.
 - Admin login with JWT-based session handling
 - Dashboard for product, inventory, order, and revenue stats
 - Product CRUD with category, price, stock, image URL, and status fields
+- Product and category CRUD through dialogs
+- Delete confirmation warnings for destructive actions
 - Category creation, editing, and deletion
 - Order listing with status updates
 - Search and filter controls for catalog management
@@ -115,6 +117,19 @@ Frontend build:
 cd frontend
 npm run build
 ```
+
+Frontend UI contract tests:
+
+```bash
+cd frontend
+npm test
+```
+
+## Documentation
+
+The assignment documentation is available in [docs/README.md](docs/README.md).
+It includes API documentation, database schema and ER diagram, architecture,
+component hierarchy, assumptions, and UI/UX wireframes.
 
 ## GitHub Remote
 
